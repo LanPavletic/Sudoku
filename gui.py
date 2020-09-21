@@ -1,28 +1,9 @@
-import sys, pygame
-from main import solve, print_board
+import sys
+import pygame
+import solving_functions
+from copy import deepcopy
 
 
-test_board = [[0, 0, 2, 1, 7, 0, 0, 0, 6],
-              [0, 9, 0, 0, 0, 8, 0, 5, 3],
-              [0, 4, 0, 3, 0, 0, 0, 1, 8],
-              [0, 0, 0, 8, 0, 0, 6, 4, 0],
-              [9, 8, 0, 0, 2, 7, 0, 0, 1],
-              [0, 0, 3, 0, 9, 0, 0, 2, 7],
-              [5, 0, 1, 9, 0, 0, 0, 7, 0],
-              [0, 7, 0, 4, 5, 1, 9, 6, 0],
-              [4, 2, 9, 0, 3, 0, 0, 0, 0]]
-
-solved_board = [[0, 0, 2, 1, 7, 0, 0, 0, 6],
-              [0, 9, 0, 0, 0, 8, 0, 5, 3],
-              [0, 4, 0, 3, 0, 0, 0, 1, 8],
-              [0, 0, 0, 8, 0, 0, 6, 4, 0],
-              [9, 8, 0, 0, 2, 7, 0, 0, 1],
-              [0, 0, 3, 0, 9, 0, 0, 2, 7],
-              [5, 0, 1, 9, 0, 0, 0, 7, 0],
-              [0, 7, 0, 4, 5, 1, 9, 6, 0],
-              [4, 2, 9, 0, 3, 0, 0, 0, 0]]
-
-solve(solved_board)
 #constats
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -31,13 +12,17 @@ RED = (255, 0, 0)
 pygame.init()
 
 class Grid:
+    board = solving_functions.generate_puzzle()
+    solved_board = deepcopy(board)
+    solving_functions.solve(solved_board)
+
     def __init__(self, width, height, cols, rows, screen):
         self.width = width
         self.height = height
         self.size = self.width, self.height
         self.cols = cols
         self.rows = rows
-        self.cubes = [[Cube(i, j, test_board[i][j], width, height, screen) for j in range(cols)] for i in range(rows)]
+        self.cubes = [[Cube(i, j, self.board[i][j], width, height, screen) for j in range(cols)] for i in range(rows)]
         self.selected = None
         self.screen = screen
         self.draw()
@@ -73,11 +58,46 @@ class Grid:
         self.cubes[col][row].selected = True
         return (col, row)
 
-    def update(self):
+    def restart_board(self):
         for i in range(len(self.cubes)):
             for j in range(len(self.cubes[i])):
-                self.cubes[i][j].value = test_board[i][j]
+                self.cubes[i][j].value = self.board[i][j]
 
+    def solve(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    for i in range(9):
+                        for j in range(9):
+                            self.board[i][j] = self.solved_board[i][j]
+                            self.cubes[i][j].value = self.solved_board[i][j]
+                    pygame.display.update()
+                    return False
+
+        if not solving_functions.find_first_empty_field(self.board):
+            return True
+        i, j = solving_functions.find_first_empty_field(self.board)
+        cube = self.cubes[i][j]
+
+        for num in range(1, 10):
+
+            cube.value = num
+            self.board[i][j] = num
+            self.draw()
+            pygame.display.update()
+            if solving_functions.valid(self.board, j, i):
+
+                if self.solve():
+                    return True
+
+            cube.value = 0
+            self.board[i][j] = 0
+            self.draw()
+            pygame.display.update()
+
+        return False
 
 class Cube:
     def __init__(self, row, col, value, width, height, screen):
@@ -87,13 +107,13 @@ class Cube:
         self.width = width
         self.height = height
         self.screen = screen
+        self.off_set = int(self.width / 9)
         self.selected = False
         self.temp_value = None
 
     def draw(self):
-        off_set = int(self.width / 9)
-        x = self.col * off_set
-        y = self.row * off_set
+        x = self.col * self.off_set
+        y = self.row * self.off_set
 
         if self.temp_value:
             font = pygame.font.SysFont("Times New Roman", 28)
@@ -102,14 +122,19 @@ class Cube:
         if self.value != 0:
             font = pygame.font.SysFont("Times New Roman", 36)
             value_number = font.render(str(self.value), 1, BLACK)
-            self.screen.blit(value_number, (x + (off_set//2 - value_number.get_width()//2), y + (off_set//2 - value_number.get_height()//2)))
+            self.screen.blit(value_number, (x + (self.off_set//2 - value_number.get_width()//2), y + (self.off_set//2 - value_number.get_height()//2)))
 
         if self.selected:
-            red_square_thickness = 4
-            pygame.draw.line(self.screen, RED, (y,x), (y, x+off_set), red_square_thickness)
-            pygame.draw.line(self.screen, RED, (y,x), (y+off_set, x), red_square_thickness)
-            pygame.draw.line(self.screen, RED, (y+off_set,x+off_set), (y+off_set, x), red_square_thickness)
-            pygame.draw.line(self.screen, RED, (y+off_set,x+off_set), (y, x+off_set), red_square_thickness)
+            self.draw_red_square()
+
+    def draw_red_square(self):
+        x = self.col * self.off_set
+        y = self.row * self.off_set
+        red_square_thickness = 4
+        pygame.draw.line(self.screen, RED, (y,x), (y, x+self.off_set), red_square_thickness)
+        pygame.draw.line(self.screen, RED, (y,x), (y+self.off_set, x), red_square_thickness)
+        pygame.draw.line(self.screen, RED, (y+self.off_set,x+self.off_set), (y+self.off_set, x), red_square_thickness)
+        pygame.draw.line(self.screen, RED, (y+self.off_set,x+self.off_set), (y, x+self.off_set), red_square_thickness)
 
 def redraw(grid):
     grid.draw()
@@ -130,7 +155,7 @@ def main():
                 run = False
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
-                    solve(test_board)
+                    grid.solve()
                 if event.key == pygame.K_1:
                     key = 1
                 if event.key == pygame.K_2:
@@ -154,8 +179,8 @@ def main():
                     grid.cubes[col][row].temp_value = None
                 if event.key == pygame.K_RETURN and grid.selected:
                     row, col = grid.selected
-                    if solved_board[col][row] == grid.cubes[col][row].temp_value:
-                        grid.cubes[col][row].value = solved_board[col][row]
+                    if grid.solved_board[col][row] == grid.cubes[col][row].temp_value:
+                        grid.cubes[col][row].value = grid.solved_board[col][row]
                         grid.cubes[col][row].temp_value = None
 
 
@@ -177,5 +202,3 @@ if __name__ == "__main__":
 
 
 sys.exit()
-
-
