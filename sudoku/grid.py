@@ -45,18 +45,21 @@ class Grid:
             for j in range(len(self.cubes[i])):
                 self.cubes[i][j].value = self.board[i][j]
 
+    def print_solved(self):
+        for i in range(9):
+            for j in range(9):
+                self.board[i][j] = self.solved_board[i][j]
+                self.cubes[i][j].value = self.solved_board[i][j]
+                pygame.display.update()
+  
     def solve(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 sys.exit()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
-                    for i in range(9):
-                        for j in range(9):
-                            self.board[i][j] = self.solved_board[i][j]
-                            self.cubes[i][j].value = self.solved_board[i][j]
-                    pygame.display.update()
-                    return False
+                    self.print_solved()
+                    return True
 
         if not helpers.find_first_empty_field(self.board):
             return True
